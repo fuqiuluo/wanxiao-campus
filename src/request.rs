@@ -1,7 +1,7 @@
 use log::error;
 use crate::wanxiao::SessionInfo;
 
-const USER_AGENT: &str = "Dalvik/2.1.0 (Linux; U; Android 5.1.1; HUAWEI MLA-AL10 Build/HUAWEIMLA-AL10)";
+pub const USER_AGENT: &str = "Dalvik/2.1.0 (Linux; U; Android 5.1.1; HUAWEI MLA-AL10 Build/HUAWEIMLA-AL10)";
 
 impl SessionInfo {
     /// 加密的请求
@@ -24,6 +24,7 @@ pub async fn request_no_encrypt(
     }
     let resp = match builder
         .header("User-Agent", USER_AGENT)
+        .header("Content-Type", "application/text;charset=UTF-8")
         .json(json)
         .send().await {
         Ok(result) => result,

@@ -1,14 +1,17 @@
 use std::iter;
 use std::time::Instant;
+use aes::cipher::KeyInit;
 use base64::Engine;
 use cbc::cipher::BlockEncryptMut;
 use cbc::cipher::generic_array::GenericArray;
-use des::cipher::KeyIvInit;
+use des::cipher::{BlockDecryptMut, KeyIvInit};
 use des::TdesEde3;
 use log::{error, info, warn};
 use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
 use rsa::pkcs1::{DecodeRsaPrivateKey, EncodeRsaPrivateKey};
 use rsa::pkcs8::EncodePublicKey;
+
+const IV: &[u8; 8] = b"66666666";
 
 /// 创建密钥对
 pub fn create_key_pair(size: usize) -> Option<(String, String)> {
@@ -65,7 +68,6 @@ pub fn rsa_decrypt(input_text: String, private_key: &str) -> Option<Vec<u8>> {
 
 /// DES加密
 pub fn des_encrypt(input_text: &[u8], des_key: &[u8]) -> Vec<u8> {
-    const IV: &[u8; 8] = b"66666666";
     let mut encryptor = cbc::Encryptor::<TdesEde3>::new_from_slices(des_key, IV)
         .unwrap();
 
@@ -77,7 +79,6 @@ pub fn des_encrypt(input_text: &[u8], des_key: &[u8]) -> Vec<u8> {
         }
     }
 
-    let mut result = Vec::new();
     let mut text = input_text.to_vec();
     pkcs5_padding(&mut text, 8);
 
@@ -85,10 +86,90 @@ pub fn des_encrypt(input_text: &[u8], des_key: &[u8]) -> Vec<u8> {
         warn!("des failed! text length is not a multiple of 8! len: {}", text.len());
     }
 
+    let mut result = Vec::new();
+
     for chunk in text.chunks_exact(8) {
         let mut block = GenericArray::clone_from_slice(chunk);
         encryptor.encrypt_block_mut(&mut block);
         result.extend_from_slice(block.as_slice());
+    }
+
+    return result;
+}
+
+/// DES解密
+pub fn des_decrypt(input_text: &[u8], des_key: &[u8]) -> Vec<u8> {
+    let mut decryptor = cbc::Decryptor::<TdesEde3>::new_from_slices(des_key, IV)
+        .unwrap();
+
+    if input_text.len() == 0 || input_text.len() % 8 != 0 {
+        warn!("des failed! text length is not a multiple of 8! len: {}", input_text.len());
+    }
+
+    let mut result = Vec::new();
+
+    for chunk in input_text.chunks_exact(8) {
+        let mut block = GenericArray::clone_from_slice(chunk);
+        decryptor.decrypt_block_mut(&mut block);
+        result.extend_from_slice(block.as_slice());
+    }
+
+    // remove padding
+    let padding_length = result[result.len() - 1] as usize;
+    if padding_length < 8 {
+        result.truncate(result.len() - padding_length);
+    }
+
+    return result;
+}
+
+/// AES加密
+pub fn aes_encrypt(input_text: &[u8], aes_key: &[u8]) -> Vec<u8> {
+    let mut cipher = aes::Aes128::new_from_slice(aes_key).unwrap();
+
+    fn pkcs7_padding(text: &mut Vec<u8>, block_size: usize) {
+        let padding_length = block_size - text.len() % block_size;
+        let padding_byte = padding_length as u8;
+        text.extend(iter::repeat(padding_byte).take(padding_length));
+    }
+
+    let mut text = input_text.to_vec();
+    pkcs7_padding(&mut text, 16);
+
+    if text.len() == 0 || text.len() % 16 != 0 {
+        warn!("aes failed! text length is not a multiple of 16! len: {}", text.len());
+    }
+
+    let mut result = Vec::new();
+
+    for chunk in text.chunks_exact(16) {
+        let mut block = GenericArray::clone_from_slice(chunk);
+        cipher.encrypt_block_mut(&mut block);
+        result.extend_from_slice(block.as_slice());
+    }
+
+    return result;
+}
+
+/// AES解密
+pub fn aes_decrypt(input_text: &[u8], aes_key: &[u8]) -> Vec<u8> {
+    let mut cipher = aes::Aes128::new_from_slice(aes_key).unwrap();
+
+    if input_text.len() == 0 || input_text.len() % 16 != 0 {
+        warn!("aes failed! text length is not a multiple of 16! len: {}", input_text.len());
+    }
+
+    let mut result = Vec::new();
+
+    for chunk in input_text.chunks_exact(16) {
+        let mut block = GenericArray::clone_from_slice(chunk);
+        cipher.decrypt_block_mut(&mut block);
+        result.extend_from_slice(block.as_slice());
+    }
+
+    let padding_length = result[result.len() - 1] as usize;
+    if padding_length < 16 {
+        result.truncate(result.len() - padding_length);
     }
 
     return result;

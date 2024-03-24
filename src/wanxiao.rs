@@ -13,6 +13,8 @@ pub struct SessionInfo {
     pub app_key: String,
     pub token: String,
     pub device_id: String,
+    pub ecard_customer_id: String,
+    pub customer_id: String,
 }
 
 impl SessionInfo {
@@ -29,6 +31,24 @@ impl SessionInfo {
     }
 }
 
+/// 新建一个会话伴随登录成功后的token
+///
+/// 将会自动发起公钥交换请求
+pub async fn new_loginned_session(
+    device_id: &str,
+    token: &str,
+    ecard_custom_id: &str,
+    custom_id: &str,
+) -> Option<SessionInfo> {
+    if let Some(mut session) = new_session(device_id).await {
+        session.token = token.to_string();
+        session.ecard_customer_id = ecard_custom_id.to_string();
+        session.customer_id = custom_id.to_string();
+        return Some(session);
+    }
+    return None;
+}
+
 /// 新建一个会话
 ///
 /// 将会自动发起公钥交换请求
@@ -40,6 +60,8 @@ pub async fn new_session(
         app_key: "".to_string(),
         token: "".to_string(),
         device_id: device_id.to_string(),
+        ecard_customer_id: "".to_string(),
+        customer_id: "".to_string(),
     };
 
     pub async fn exchange_secret(public_key: String, private_key: String) -> Option<(String, String)> {

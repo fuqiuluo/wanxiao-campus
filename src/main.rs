@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut session = wanxiao::new_session(
         device_id
     ).await.unwrap();
-    let phone = "18133267317";
+    let phone = "110";
     if let Ok(()) = session.check_phone_state(phone).await {
         if let Err(e) = session.request_send_code(phone).await {
             println!("发送验证码失败: {}", e);
